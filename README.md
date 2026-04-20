@@ -59,15 +59,13 @@ While the student app focuses on tracking, **UniRide Client** is the operational
 
 ```bash
 # 1. Clone this repository
-git clone [https://github.com/lynx7843/UniRide_client.git](https://github.com/lynx7843/UniRide_client.git)
-cd uniride-client
+git clone https://github.com/lynx7843/UniRide_client.git
+cd UniRide-client
 
 # 2. Install dependencies
 flutter pub get
 
 # 3. Configure the backend URL
-#   Open lib/config/app_config.dart and update the API base URL
-#   const String apiBaseUrl = '[https://your-uniride-backend.com](https://your-uniride-backend.com)';
 
 # 4. Run the app (requires physical device for accurate GPS testing)
 flutter run
