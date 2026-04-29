@@ -32,6 +32,7 @@ import 'package:http/http.dart' as http;
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'schedule.dart';
 import 'profile.dart';
+import 'status.dart';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -228,66 +229,64 @@ class _HomeScreenState extends State<HomeScreen> {
           });
 
           if (shuttleLocation != null) {
-            // final shuttleStopsApiUrl = dotenv.env['SHUTTLE_STOPS_API'];
-            // 
-            // List<LatLng> stops = [];
-            // 
-            // // Check local cache first
-            // if (_shuttleStopsCache.containsKey(details.shuttleId)) {
-            //   stops = _shuttleStopsCache[details.shuttleId]!;
-            // } else if (shuttleStopsApiUrl != null && shuttleStopsApiUrl.isNotEmpty) {
-            //    try {
-            //      final stopsResponse = await http.get(Uri.parse('$shuttleStopsApiUrl?shuttleId=${details.shuttleId}'));
-            //      if (stopsResponse.statusCode == 200) {
-            //        dynamic decodedStops = jsonDecode(stopsResponse.body);
-            //        
-            //        // 1. Unwrap API Gateway body wrapper if present
-            //        if (decodedStops is Map && decodedStops.containsKey('body') && decodedStops['body'] is String) {
-            //          decodedStops = jsonDecode(decodedStops['body']);
-            //        }
-            //
-            //        // 2. Unwrap DynamoDB "L" (List) wrapper if data was inserted via raw AWS SDK format
-            //        if (decodedStops is Map && decodedStops.containsKey('stops')) {
-            //          decodedStops = decodedStops['stops'];
-            //        }
-            //        if (decodedStops is Map && decodedStops.containsKey('L')) {
-            //          decodedStops = decodedStops['L'];
-            //        }
-            //
-            //        if (decodedStops is List) {
-            //          for (var stop in decodedStops) {
-            //            var latRaw = stop is Map ? stop['lat'] : null;
-            //            var lngRaw = stop is Map ? stop['lng'] : null;
-            //
-            //            // Fallback for raw DynamoDB format
-            //            if (latRaw == null && stop is Map && stop['M'] != null) {
-            //              latRaw = stop['M']['lat']?['N'] ?? stop['M']['lat'];
-            //              lngRaw = stop['M']['lng']?['N'] ?? stop['M']['lng'];
-            //            }
-            //
-            //            final lat = double.tryParse(latRaw?.toString() ?? '');
-            //            final lng = double.tryParse(lngRaw?.toString() ?? '');
-            //            if (lat != null && lng != null) {
-            //              stops.add(LatLng(lat, lng));
-            //            }
-            //          }
-            //          _shuttleStopsCache[details.shuttleId] = stops;
-            //        }
-            //        debugPrint('Loaded ${stops.length} shuttle stops from API.');
-            //      }
-            //    } catch (e) {
-            //      debugPrint('Error fetching shuttle stops: $e');
-            //    }
-            // }
+            final shuttleStopsApiUrl = dotenv.env['SHUTTLE_STOPS_API'];
+            
+            List<LatLng> stops = [];
+            
+            if (details.shuttleId == 's001') {
+              stops = const [
+                LatLng(6.855245514556124, 80.05865701824928),
+                LatLng(6.8585403000705725, 80.09122540616569),
+                LatLng(6.908931195765443, 80.0825102621184),
+                LatLng(6.947475561303212, 80.09407315229855),
+                LatLng(6.975026901546493, 80.11811965850465),
+              ];
+            } else if (_shuttleStopsCache.containsKey(details.shuttleId)) {
+              stops = _shuttleStopsCache[details.shuttleId]!;
+            } else if (shuttleStopsApiUrl != null && shuttleStopsApiUrl.isNotEmpty) {
+               try {
+                 final stopsResponse = await http.get(Uri.parse('$shuttleStopsApiUrl?shuttleId=${details.shuttleId}'));
+                 if (stopsResponse.statusCode == 200) {
+                   dynamic decodedStops = jsonDecode(stopsResponse.body);
+                   
+                   // 1. Unwrap API Gateway body wrapper if present
+                   if (decodedStops is Map && decodedStops.containsKey('body') && decodedStops['body'] is String) {
+                     decodedStops = jsonDecode(decodedStops['body']);
+                   }
 
-            // Static hardcoded coordinates for shuttle stops
-            List<LatLng> stops = const [
-              LatLng(6.855245514556124, 80.05865701824928),
-              LatLng(6.8585403000705725, 80.09122540616569),
-              LatLng(6.908931195765443, 80.0825102621184),
-              LatLng(6.947475561303212, 80.09407315229855),
-              LatLng(6.975026901546493, 80.11811965850465),
-            ];
+                   // 2. Unwrap DynamoDB "L" (List) wrapper if data was inserted via raw AWS SDK format
+                   if (decodedStops is Map && decodedStops.containsKey('stops')) {
+                     decodedStops = decodedStops['stops'];
+                   }
+                   if (decodedStops is Map && decodedStops.containsKey('L')) {
+                     decodedStops = decodedStops['L'];
+                   }
+
+                   if (decodedStops is List) {
+                     for (var stop in decodedStops) {
+                       var latRaw = stop is Map ? stop['lat'] : null;
+                       var lngRaw = stop is Map ? stop['lng'] : null;
+
+                       // Fallback for raw DynamoDB format
+                       if (latRaw == null && stop is Map && stop['M'] != null) {
+                         latRaw = stop['M']['lat']?['N'] ?? stop['M']['lat'];
+                         lngRaw = stop['M']['lng']?['N'] ?? stop['M']['lng'];
+                       }
+
+                       final lat = double.tryParse(latRaw?.toString() ?? '');
+                       final lng = double.tryParse(lngRaw?.toString() ?? '');
+                       if (lat != null && lng != null) {
+                         stops.add(LatLng(lat, lng));
+                       }
+                     }
+                     _shuttleStopsCache[details.shuttleId] = stops;
+                   }
+                   debugPrint('Loaded ${stops.length} shuttle stops from API.');
+                 }
+               } catch (e) {
+                 debugPrint('Error fetching shuttle stops: $e');
+               }
+            }
 
             // Pass the populated stops to the route drawing function
             await _showShuttleRoute(shuttleLocation, stops);
@@ -740,6 +739,8 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (i == 1) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ScheduleScreen()));
           } else if (i == 2) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ShuttleStatusScreen()));
+          } else if (i == 2) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
           }
         },
@@ -768,6 +769,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.calendar_today_outlined),
             activeIcon: Icon(Icons.calendar_today),
             label: 'SCHEDULE',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_bus_outlined),
+            activeIcon: Icon(Icons.directions_bus),
+            label: 'STATUS',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

@@ -212,7 +212,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(fontSize: 15, color: Colors.black),
                   decoration: InputDecoration(
-                    hintText: 'student@nsbm.ac.lk',
+                    hintText: 'your@email.com',
                     hintStyle: const TextStyle(
                       color: Colors.black38,
                       fontSize: 15,

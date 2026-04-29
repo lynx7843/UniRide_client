@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'home.dart';
+import 'schedule.dart';
+import 'status.dart';
 
 void main() {
   runApp(const CampusTransitApp());
@@ -34,7 +37,7 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  int _currentIndex = 2;
+  int _currentIndex = 3;
 
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -436,15 +439,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildBottomNavBar() {
     final items = [
-      _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'HOME'),
-      _NavItem(
-          icon: Icons.calendar_today_outlined,
-          activeIcon: Icons.calendar_today,
-          label: 'SCHEDULE'),
-      _NavItem(
-          icon: Icons.person_outline,
-          activeIcon: Icons.person,
-          label: 'PROFILE'),
+      _NavItem(icon: Icons.map_outlined, activeIcon: Icons.map, label: 'HOME'),
+      _NavItem(icon: Icons.calendar_today_outlined, activeIcon: Icons.calendar_today, label: 'SCHEDULE'),
+      _NavItem(icon: Icons.directions_bus_outlined, activeIcon: Icons.directions_bus, label: 'STATUS'),
+      _NavItem(icon: Icons.person_outline, activeIcon: Icons.person, label: 'PROFILE'),
     ];
 
     return Container(
@@ -467,7 +465,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               final item = items[index];
               final isActive = _currentIndex == index;
               return GestureDetector(
-                onTap: () => setState(() => _currentIndex = index),
+                onTap: () {
+                  if (index == _currentIndex) return;
+                  if (index == 0) {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
+                  } else if (index == 1) {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ScheduleScreen()));
+                  } else if (index == 2) {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ShuttleStatusScreen()));
+                  }
+                },
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(

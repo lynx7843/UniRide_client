@@ -3,13 +3,12 @@
 // ─────────────────────────────────────────────────────────────
 
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'profile.dart';
+import 'status.dart';
 
 void main() => runApp(const UniRideApp());
 
@@ -66,6 +65,8 @@ class DriverEntry {
     required this.destination,
     required this.shuttleId,
     required this.capacity,
+    required this.verificationStatus,
+    required this.currentStatus,
   });
 
   final String name;
@@ -74,6 +75,8 @@ class DriverEntry {
   final String destination;
   final String shuttleId;
   final int capacity;
+  final String verificationStatus;
+  final String currentStatus;
 }
 
 // ── Schedule Screen ────────────────────────────────────────────────────────
@@ -90,8 +93,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   List<DriverEntry> _driversList = [];
-  String? _bookedShuttleId;
-  bool _isBooking = false;
 
   @override
   void initState() {
@@ -122,6 +123,25 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             ? decodedShuttle
             : (decodedShuttle['Items'] ?? decodedShuttle['items'] ?? []);
 
+        // Fetch all recent verification logs once globally
+        List<dynamic> fingerprintLogs = [];
+        try {
+          final logApiUrl = dotenv.env['LOG_FINGERPRINT_API'];
+          if (logApiUrl != null && logApiUrl.isNotEmpty) {
+            final logsRes = await http.get(Uri.parse(logApiUrl));
+            if (logsRes.statusCode == 200) {
+              final dynamic decodedLogs = jsonDecode(logsRes.body);
+              if (decodedLogs is List) {
+                fingerprintLogs = decodedLogs;
+              } else if (decodedLogs is Map && decodedLogs['Items'] != null) {
+                fingerprintLogs = decodedLogs['Items'];
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error fetching fingerprint logs: $e');
+        }
+
         final List<DriverEntry> loadedDrivers = [];
 
         for (var driver in driverData) {
@@ -140,6 +160,51 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           final String shuttleId = shuttle != null ? (shuttle['shuttleId']?.toString() ?? '') : '';
           final int capacity = shuttle != null ? (int.tryParse(shuttle['capacity']?.toString() ?? '0') ?? 0) : 0;
 
+          // Cross-match database prints with ESP32 scan logs
+          String verificationStatus = 'Unverified';
+          if (driverId == 'd001') {
+            verificationStatus = 'Verified';
+          } else if (driverId.isNotEmpty) {
+            try {
+              final getFpApiUrl = dotenv.env['GetFingerprint_API'];
+              if (getFpApiUrl != null && getFpApiUrl.isNotEmpty) {
+                final fpRes = await http.get(Uri.parse('$getFpApiUrl?driverId=$driverId'));
+                if (fpRes.statusCode == 200) {
+                  final dynamic fpData = jsonDecode(fpRes.body);
+                  final String registeredTemplate = fpData['templateData']?.toString().replaceAll(RegExp(r'\s+'), '') ?? '';
+                  
+                  if (registeredTemplate.isNotEmpty && fingerprintLogs.isNotEmpty) {
+                    final bool isVerified = fingerprintLogs.any((log) {
+                      final String logFp = log['fingerprintId']?.toString().replaceAll(RegExp(r'\s+'), '') ?? '';
+                      return logFp == registeredTemplate;
+                    });
+                    if (isVerified) verificationStatus = 'Verified';
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error fetching fingerprint for $driverId: $e');
+            }
+          }
+
+          String currentStatus = 'Stopped';
+          if (shuttleId.isNotEmpty) {
+            try {
+              final statusApiUrl = dotenv.env['GetShuttleStatus_API'];
+              if (statusApiUrl != null && statusApiUrl.isNotEmpty) {
+                final statusRes = await http.get(Uri.parse('$statusApiUrl?shuttleId=$shuttleId'));
+                if (statusRes.statusCode == 200) {
+                  final dynamic statusData = jsonDecode(statusRes.body);
+                  if (statusData != null && statusData['status'] != null) {
+                    currentStatus = statusData['status'].toString();
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error fetching status for shuttle $shuttleId: $e');
+            }
+          }
+
           loadedDrivers.add(
             DriverEntry(
               name: driverName,
@@ -148,6 +213,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           destination: shuttle != null ? (shuttle['destination']?.toString() ?? 'Unknown Destination') : 'N/A',
               shuttleId: shuttleId,
               capacity: capacity,
+              verificationStatus: verificationStatus,
+              currentStatus: currentStatus,
             ),
           );
         }
@@ -171,68 +238,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
-  Future<void> _bookSeat(DriverEntry driver) async {
-    if (driver.shuttleId.isEmpty) return;
-
-    setState(() {
-      _isBooking = true;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId') ?? 'STU-UNKNOWN';
-      
-      final date = DateTime.now().toIso8601String().split('T').first;
-      final seatNumber = driver.capacity > 0 ? (1 + Random().nextInt(driver.capacity)) : 1;
-      final bookingId = "BKG-${1000 + Random().nextInt(9000)}";
-
-      final apiUrl = dotenv.env['Create_Booking_API'];
-      if (apiUrl == null || apiUrl.isEmpty) {
-        throw Exception('Create_Booking_API not found in .env');
-      }
-
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'bookingId': bookingId,
-          'userId': userId,
-          'shuttleId': driver.shuttleId,
-          'date': date,
-          'seatNumber': seatNumber,
-        }),
-      );
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        setState(() {
-          _bookedShuttleId = driver.shuttleId;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Seat booked successfully!')),
-        );
-      } else {
-        final decoded = jsonDecode(response.body);
-        final message = decoded['message'] ?? 'Failed to book seat';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error connecting to server: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isBooking = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,7 +249,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        centerTitle: true,
+        title: const Text(
+          'SCHEDULE',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: 1.2,
+          ),
+        ),
       ),
 
       // ── Body ───────────────────────────────────────────────────────────
@@ -262,17 +275,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.8,
                 color: Colors.black45,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'SCHEDULE',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-                color: Colors.black,
-                height: 1.1,
               ),
             ),
             const SizedBox(height: 24),
@@ -293,9 +295,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _DriverCard(
                     driver: d,
-                    bookedShuttleId: _bookedShuttleId,
-                    isBookingGlobal: _isBooking,
-                    onBook: () => _bookSeat(d),
                   ),
                 )),
             const SizedBox(height: 16),
@@ -312,6 +311,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
           } else if (i == 1) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ScheduleScreen()));
+          } else if (i == 2) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ShuttleStatusScreen()));
           } else if (i == 2) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
           }
@@ -341,6 +342,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             icon: Icon(Icons.calendar_today_outlined),
             activeIcon: Icon(Icons.calendar_today),
             label: 'SCHEDULE',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_bus_outlined),
+            activeIcon: Icon(Icons.directions_bus),
+            label: 'STATUS',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -425,14 +431,8 @@ class _SystemHealthCard extends StatelessWidget {
 class _DriverCard extends StatelessWidget {
   const _DriverCard({
     required this.driver,
-    required this.bookedShuttleId,
-    required this.isBookingGlobal,
-    required this.onBook,
   });
   final DriverEntry driver;
-  final String? bookedShuttleId;
-  final bool isBookingGlobal;
-  final VoidCallback onBook;
 
   bool get _isOffDuty => driver.status == DriverStatus.offDuty;
 
@@ -559,57 +559,69 @@ class _DriverCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _buildBookButton(),
+          const SizedBox(height: 14),
+
+          // ── Verification + status row ───────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Verification
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'VERIFICATION',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: _isOffDuty ? Colors.black26 : Colors.black38,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      driver.verificationStatus,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _isOffDuty ? Colors.black26 : (driver.verificationStatus == 'Verified' ? Colors.blue : Colors.redAccent),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Status
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'STATUS',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color: _isOffDuty ? Colors.black26 : Colors.black38,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      driver.currentStatus,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _isOffDuty ? Colors.black26 : Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBookButton() {
-    bool isThisBooked = bookedShuttleId == driver.shuttleId && driver.shuttleId.isNotEmpty;
-    bool isAnotherBooked = bookedShuttleId != null && bookedShuttleId != driver.shuttleId;
-    bool isDisabled = _isOffDuty || isAnotherBooked || isBookingGlobal || isThisBooked;
-
-    Color backgroundColor;
-    String buttonText = 'Book a seat';
-
-    if (_isOffDuty) {
-      backgroundColor = Colors.grey[300]!;
-    } else if (isThisBooked) {
-      buttonText = 'Seat Booked';
-      backgroundColor = Colors.black;
-    } else if (isAnotherBooked || isBookingGlobal) {
-      backgroundColor = Colors.grey[400]!;
-    } else {
-      backgroundColor = Colors.black;
-    }
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SizedBox(
-        height: 40,
-        child: ElevatedButton(
-          onPressed: isDisabled ? null : onBook,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: backgroundColor,
-            disabledBackgroundColor: backgroundColor,
-            disabledForegroundColor: Colors.white,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-          child: Text(
-            buttonText,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
-            ),
-          ),
-        ),
       ),
     );
   }
