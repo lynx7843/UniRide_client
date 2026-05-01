@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🚌 UniRide Client
-### Driver Management Companion — Flutter App
+### Driver Management Companion
 
 **UniRide Client** is the official driver-side application for the [UniRide](https://github.com/lynx7843/UniRide) ecosystem.  
 Built with **Flutter**, it empowers university shuttle drivers to manage their shifts, view assigned routes, and broadcast live location data to the student network.
@@ -12,13 +12,11 @@ Built with **Flutter**, it empowers university shuttle drivers to manage their s
 
 </div>
 
----
 
 ## 📖 About
 
 While the student app focuses on tracking, **UniRide Client** is the operational backbone for drivers on the road. Designed for minimal distraction and high reliability, this app allows drivers to log into their assigned vehicles, start their shifts, and ensure that real-time tracking data is actively syncing with the university network. 
 
----
 
 ## ✨ Features
 
@@ -37,7 +35,6 @@ While the student app focuses on tracking, **UniRide Client** is the operational
 - Easy reporting for delays, traffic, or emergency route deviations
 - Direct communication link with the campus transport dispatch
 
----
 
 ## 🛠️ Tech Stack
 
@@ -49,9 +46,8 @@ While the student app focuses on tracking, **UniRide Client** is the operational
 | Backend | AWS |
 | Core Packages | `geolocator` (Background GPS), `flutter_background_service` |
 
-> The backend and admin dashboards are maintained in the main [UniRide repository](https://github.com/lynx7843/UniRide).
+> Web dashboards is maintained in the main [UniRide repository](https://github.com/lynx7843/UniRide).
 
----
 
 ## 🚀 Getting Started
 
@@ -60,7 +56,7 @@ While the student app focuses on tracking, **UniRide Client** is the operational
 ```bash
 # 1. Clone this repository
 git clone https://github.com/lynx7843/UniRide_client.git
-cd UniRide-client
+cd UniRide_client
 
 # 2. Install dependencies
 flutter pub get
@@ -71,13 +67,33 @@ flutter pub get
 flutter run
 ```
 
----
-
 ## 🎯 Target Users
 
 - **Shuttle Drivers** — To manage routes, broadcast locations, and report capacities.
 - **Transport Administrators** — To monitor driver activity and fleet health via the connected web dashboard.
 
+
+<br>
+
+
+## 📷 Preview
+
+> _Screenshots_
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="img/signin.jpeg" alt="Login" width="200"><br><b>Login</b></td>
+      <td align="center"><img src="img/home.jpeg" alt="Home" width="200"><br><b>Home</b></td>
+      <td align="center"><img src="img/schedule.jpeg" alt="Schedule" width="200"><br><b>Schedule</b></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="img/Status.jpeg" alt="Status" width="200"><br><b>Status</b></td>
+      <td align="center"><img src="img/profile.jpeg" alt="Profile" width="200"><br><b>Profile</b></td>
+      <td align="center"><img src="img/edit.jpeg" alt="Edit Profile" width="200"><br><b>Edit Profile</b></td>
+    </tr>
+  </table>
+</div>
 
 <br>
 
