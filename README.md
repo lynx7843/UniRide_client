@@ -88,7 +88,7 @@ flutter run
       <td align="center"><img src="img/schedule.jpeg" alt="Schedule" width="200"><br><b>Schedule</b></td>
     </tr>
     <tr>
-      <td align="center"><img src="img/Status.jpeg" alt="Status" width="200"><br><b>Status</b></td>
+      <td align="center"><img src="img/status.jpeg" alt="Status" width="200"><br><b>Status</b></td>
       <td align="center"><img src="img/profile.jpeg" alt="Profile" width="200"><br><b>Profile</b></td>
       <td align="center"><img src="img/edit.jpeg" alt="Edit Profile" width="200"><br><b>Edit Profile</b></td>
     </tr>
